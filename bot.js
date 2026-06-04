@@ -4,9 +4,14 @@ const TelegramBot = require('node-telegram-bot-api');
 const pool = require('./db');
 require('dotenv').config();
 
+
+// polling sirf local mein, 
+// production mein band
+const isProduction = process.env.NODE_ENV === 'production';
+
 const bot = new TelegramBot(
   process.env.TELEGRAM_TOKEN,
-  { polling: true }  // Ab polling true - commands ke liye
+  { polling: !isProduction }  // ✅ Fix
 );
 
 // ========================
