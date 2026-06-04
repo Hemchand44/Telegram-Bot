@@ -9,7 +9,10 @@ const leadRoutes = require('./routes/leads');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*'  // Koi bhi domain se request allow karo
+}));
+
 app.use(express.json());
 
 // Routes
