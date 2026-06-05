@@ -13,7 +13,7 @@ A real-time lead management bot for Instagram Agencies. Whenever a customer fill
 
 > Bot in action — real-time lead notifications and command-based management
 
-![Bot Preview](./preview.png)
+![Bot Preview](./Telegram_bot.png)
 
 ---
 
