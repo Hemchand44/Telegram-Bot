@@ -3,7 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-
+const { bot } = require('./bot');
 const leadRoutes = require('./routes/leads');
 
 const app = express();
@@ -21,6 +21,13 @@ app.use('/api/leads', leadRoutes);
 // Test route
 app.get('/', (req, res) => {
   res.json({ message: 'Lead Bot Server chal raha hai ✅' });
+});
+
+
+// Webhook endpoint
+app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
 // Server start karo

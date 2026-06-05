@@ -1,18 +1,30 @@
-// bot.js
-const schedule = require('node-schedule');
 const TelegramBot = require('node-telegram-bot-api');
-const pool = require('./db');
 require('dotenv').config();
 
+const RENDER_URL = process.env.RENDER_URL;
+// Example: https://telegram-bot-zkg9.onrender.com
 
-// polling sirf local mein, 
-// production mein band
-const isProduction = process.env.NODE_ENV === 'production';
+let bot;
 
-const bot = new TelegramBot(
-  process.env.TELEGRAM_TOKEN,
-  { polling: !isProduction }  // ✅ Fix
-);
+if (process.env.NODE_ENV === 'production') {
+  // Production mein webhook use karo
+  bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {
+    webHook: {
+      port: process.env.PORT || 3000
+    }
+  });
+
+  // Webhook set karo
+  bot.setWebHook(`${RENDER_URL}/bot${process.env.TELEGRAM_TOKEN}`);
+  console.log('✅ Webhook set kiya');
+
+} else {
+  // Local mein polling use karo
+  bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {
+    polling: true
+  });
+  console.log('✅ Polling start kiya');
+}
 
 // ========================
 // LEAD NOTIFICATION
@@ -32,36 +44,12 @@ async function sendLeadNotification(lead) {
 _Jaldi contact karo! 🔥_
   `;
 
-  await bot.sendMessage(process.env.CHAT_ID, message, {
-    parse_mode: 'Markdown'
-  });
+  await bot.sendMessage(
+    process.env.CHAT_ID,
+    message,
+    { parse_mode: 'Markdown' }
+  );
 }
-
-schedule.scheduleJob('0 21 * * *', async () => {
-  
-  const today = await pool.query(
-    `SELECT COUNT(*) FROM leads WHERE DATE(created_at) = CURRENT_DATE`
-  );
-  
-  const converted = await pool.query(
-    `SELECT COUNT(*) FROM leads 
-     WHERE DATE(created_at) = CURRENT_DATE 
-     AND status = 'converted'`
-  );
-
-  const message = `
-🌙 *Daily Lead Summary*
-📅 ${new Date().toLocaleDateString('en-IN')}
-
-📥 Aaj Aaye: *${today.rows[0].count}* leads
-✅ Convert Hue: *${converted.rows[0].count}*
-
-_Kal phir mehnat karte hain! 💪_
-  `;
-
-  bot.sendMessage(process.env.CHAT_ID, message, { parse_mode: 'Markdown' });
-});
-
 
 // ========================
 // /start COMMAND
@@ -81,10 +69,11 @@ _Powered by Your Agency_ 🚀
 });
 
 // ========================
-// /leads COMMAND - AAJ KE LEADS
+// /leads COMMAND
 // ========================
 bot.onText(/\/leads/, async (msg) => {
   try {
+    const pool = require('./db');
     const result = await pool.query(
       `SELECT * FROM leads 
        WHERE DATE(created_at) = CURRENT_DATE
@@ -92,7 +81,10 @@ bot.onText(/\/leads/, async (msg) => {
     );
 
     if (result.rows.length === 0) {
-      return bot.sendMessage(msg.chat.id, '😔 Aaj koi lead nahi aaya abhi tak.');
+      return bot.sendMessage(
+        msg.chat.id, 
+        '😔 Aaj koi lead nahi aaya abhi tak.'
+      );
     }
 
     let message = `📋 *Aaj Ke Leads (${result.rows.length})*\n\n`;
@@ -104,51 +96,75 @@ bot.onText(/\/leads/, async (msg) => {
       message += `   🔖 Status: ${lead.status}\n\n`;
     });
 
-    bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
+    bot.sendMessage(msg.chat.id, message, { 
+      parse_mode: 'Markdown' 
+    });
 
   } catch (error) {
-    bot.sendMessage(msg.chat.id, '❌ Kuch error aaya: ' + error.message);
+    bot.sendMessage(
+      msg.chat.id, 
+      '❌ Kuch error aaya: ' + error.message
+    );
   }
 });
 
 // ========================
-// /all COMMAND - TOTAL COUNT
+// /all COMMAND
 // ========================
 bot.onText(/\/all/, async (msg) => {
   try {
-    const total = await pool.query('SELECT COUNT(*) FROM leads');
-    const newLeads = await pool.query(`SELECT COUNT(*) FROM leads WHERE status = 'new'`);
-    const converted = await pool.query(`SELECT COUNT(*) FROM leads WHERE status = 'converted'`);
+    const pool = require('./db');
+    const total = await pool.query(
+      'SELECT COUNT(*) FROM leads'
+    );
+    const newLeads = await pool.query(
+      `SELECT COUNT(*) FROM leads WHERE status = 'new'`
+    );
+    const converted = await pool.query(
+      `SELECT COUNT(*) FROM leads WHERE status = 'converted'`
+    );
 
     const message = `
 📊 *Lead Summary*
 
 📥 Total Leads: *${total.rows[0].count}*
-🔴 New (Uncontacted): *${newLeads.rows[0].count}*
+🔴 Pending: *${newLeads.rows[0].count}*
 ✅ Converted: *${converted.rows[0].count}*
     `;
 
-    bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
+    bot.sendMessage(msg.chat.id, message, { 
+      parse_mode: 'Markdown' 
+    });
 
   } catch (error) {
-    bot.sendMessage(msg.chat.id, '❌ Error: ' + error.message);
+    bot.sendMessage(
+      msg.chat.id, 
+      '❌ Error: ' + error.message
+    );
   }
 });
 
 // ========================
-// /new COMMAND - SIRF NEW LEADS
+// /new COMMAND
 // ========================
 bot.onText(/\/new/, async (msg) => {
   try {
+    const pool = require('./db');
     const result = await pool.query(
-      `SELECT * FROM leads WHERE status = 'new' ORDER BY created_at DESC LIMIT 5`
+      `SELECT * FROM leads 
+       WHERE status = 'new' 
+       ORDER BY created_at DESC 
+       LIMIT 5`
     );
 
     if (result.rows.length === 0) {
-      return bot.sendMessage(msg.chat.id, '✅ Koi pending lead nahi hai!');
+      return bot.sendMessage(
+        msg.chat.id, 
+        '✅ Koi pending lead nahi hai!'
+      );
     }
 
-    let message = `🔴 *New Leads (Contact Pending)*\n\n`;
+    let message = `🔴 *Pending Leads*\n\n`;
 
     result.rows.forEach((lead) => {
       message += `🆔 #${lead.id} - *${lead.name}*\n`;
@@ -156,11 +172,16 @@ bot.onText(/\/new/, async (msg) => {
       message += `📅 ${new Date(lead.created_at).toLocaleDateString('en-IN')}\n\n`;
     });
 
-    bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
+    bot.sendMessage(msg.chat.id, message, { 
+      parse_mode: 'Markdown' 
+    });
 
   } catch (error) {
-    bot.sendMessage(msg.chat.id, '❌ Error: ' + error.message);
+    bot.sendMessage(
+      msg.chat.id, 
+      '❌ Error: ' + error.message
+    );
   }
 });
 
-module.exports = { sendLeadNotification };
+module.exports = { sendLeadNotification, bot };
