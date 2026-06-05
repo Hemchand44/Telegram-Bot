@@ -1,30 +1,11 @@
 const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
 
-const RENDER_URL = process.env.RENDER_URL;
-// Example: https://telegram-bot-zkg9.onrender.com
-
-let bot;
-
-if (process.env.NODE_ENV === 'production') {
-  // Production mein webhook use karo
-  bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {
-    webHook: {
-      port: process.env.PORT || 3000
-    }
-  });
-
-  // Webhook set karo
-  bot.setWebHook(`${RENDER_URL}/bot${process.env.TELEGRAM_TOKEN}`);
-  console.log('✅ Webhook set kiya');
-
-} else {
-  // Local mein polling use karo
-  bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {
-    polling: true
-  });
-  console.log('✅ Polling start kiya');
-}
+// Hamesha polling false rakho
+// Webhook server.js handle karega
+const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {
+  polling: false
+});
 
 // ========================
 // LEAD NOTIFICATION
@@ -62,7 +43,6 @@ Commands:
 /leads - Aaj ke saare leads
 /all - Total leads count
 /new - New leads jinhe contact nahi kiya
-/help - Help
 
 _Powered by Your Agency_ 🚀
   `, { parse_mode: 'Markdown' });
@@ -82,13 +62,12 @@ bot.onText(/\/leads/, async (msg) => {
 
     if (result.rows.length === 0) {
       return bot.sendMessage(
-        msg.chat.id, 
+        msg.chat.id,
         '😔 Aaj koi lead nahi aaya abhi tak.'
       );
     }
 
     let message = `📋 *Aaj Ke Leads (${result.rows.length})*\n\n`;
-
     result.rows.forEach((lead, index) => {
       message += `${index + 1}. *${lead.name}*\n`;
       message += `   📞 ${lead.phone}\n`;
@@ -96,15 +75,12 @@ bot.onText(/\/leads/, async (msg) => {
       message += `   🔖 Status: ${lead.status}\n\n`;
     });
 
-    bot.sendMessage(msg.chat.id, message, { 
-      parse_mode: 'Markdown' 
+    bot.sendMessage(msg.chat.id, message, {
+      parse_mode: 'Markdown'
     });
 
   } catch (error) {
-    bot.sendMessage(
-      msg.chat.id, 
-      '❌ Kuch error aaya: ' + error.message
-    );
+    bot.sendMessage(msg.chat.id, '❌ Error: ' + error.message);
   }
 });
 
@@ -114,15 +90,9 @@ bot.onText(/\/leads/, async (msg) => {
 bot.onText(/\/all/, async (msg) => {
   try {
     const pool = require('./db');
-    const total = await pool.query(
-      'SELECT COUNT(*) FROM leads'
-    );
-    const newLeads = await pool.query(
-      `SELECT COUNT(*) FROM leads WHERE status = 'new'`
-    );
-    const converted = await pool.query(
-      `SELECT COUNT(*) FROM leads WHERE status = 'converted'`
-    );
+    const total = await pool.query('SELECT COUNT(*) FROM leads');
+    const newLeads = await pool.query(`SELECT COUNT(*) FROM leads WHERE status = 'new'`);
+    const converted = await pool.query(`SELECT COUNT(*) FROM leads WHERE status = 'converted'`);
 
     const message = `
 📊 *Lead Summary*
@@ -132,15 +102,12 @@ bot.onText(/\/all/, async (msg) => {
 ✅ Converted: *${converted.rows[0].count}*
     `;
 
-    bot.sendMessage(msg.chat.id, message, { 
-      parse_mode: 'Markdown' 
+    bot.sendMessage(msg.chat.id, message, {
+      parse_mode: 'Markdown'
     });
 
   } catch (error) {
-    bot.sendMessage(
-      msg.chat.id, 
-      '❌ Error: ' + error.message
-    );
+    bot.sendMessage(msg.chat.id, '❌ Error: ' + error.message);
   }
 });
 
@@ -159,28 +126,24 @@ bot.onText(/\/new/, async (msg) => {
 
     if (result.rows.length === 0) {
       return bot.sendMessage(
-        msg.chat.id, 
+        msg.chat.id,
         '✅ Koi pending lead nahi hai!'
       );
     }
 
     let message = `🔴 *Pending Leads*\n\n`;
-
     result.rows.forEach((lead) => {
       message += `🆔 #${lead.id} - *${lead.name}*\n`;
       message += `📞 ${lead.phone}\n`;
       message += `📅 ${new Date(lead.created_at).toLocaleDateString('en-IN')}\n\n`;
     });
 
-    bot.sendMessage(msg.chat.id, message, { 
-      parse_mode: 'Markdown' 
+    bot.sendMessage(msg.chat.id, message, {
+      parse_mode: 'Markdown'
     });
 
   } catch (error) {
-    bot.sendMessage(
-      msg.chat.id, 
-      '❌ Error: ' + error.message
-    );
+    bot.sendMessage(msg.chat.id, '❌ Error: ' + error.message);
   }
 });
 
